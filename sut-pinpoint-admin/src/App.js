@@ -15,8 +15,8 @@ export default function App() {
   );
 
   // Navigation & Sub-Tabs
-  const [activeMenu, setActiveMenu] = useState('Dashboard'); // 'Dashboard' | 'Users' | 'Notification'
-  const [activeSubTab, setActiveSubTab] = useState('Buildings Overview'); // 'Buildings Overview' | 'Classroom Table' | 'Notification'
+  const [activeMenu, setActiveMenu] = useState('Dashboard');
+  const [activeSubTab, setActiveSubTab] = useState('Buildings Overview');
 
   // Search & Filters
   const [globalSearch, setGlobalSearch] = useState('');
@@ -40,8 +40,10 @@ export default function App() {
   // Modal States
   const [showAddBuildingModal, setShowAddBuildingModal] = useState(false);
   const [showAddRoomModal, setShowAddRoomModal] = useState(false);
+  const [showEditRoomModal, setShowEditRoomModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [selectedUserProfile, setSelectedUserProfile] = useState(null);
+  const [buildingToDelete, setBuildingToDelete] = useState(null);
 
   // Form States
   const [newBuilding, setNewBuilding] = useState({ name: '', floors: '', rooms_count: '' });
@@ -52,8 +54,11 @@ export default function App() {
     floor: '', 
     type: 'Lecture', 
     name: '', 
-    status: 'Now' 
+    status: 'Open' 
   });
+
+  // State สำหรับห้องเรียนที่กำลังแก้ไข
+  const [editingRoom, setEditingRoom] = useState(null);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -63,7 +68,6 @@ export default function App() {
     }
   }, [isLoggedIn]);
 
-  // Fetch Data from MySQL
   const fetchBuildings = async () => {
     try {
       const res = await axios.get(`${API_BASE}/buildings`);
@@ -98,7 +102,7 @@ export default function App() {
     }
   };
 
-  // Action Handlers
+  // Actions: เพิ่มอาคาร
   const handleAddBuildingSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -111,6 +115,20 @@ export default function App() {
     }
   };
 
+  // Actions: ลบอาคาร
+  const handleConfirmDeleteBuilding = async () => {
+    if (!buildingToDelete) return;
+    try {
+      await axios.delete(`${API_BASE}/buildings/${buildingToDelete.id}`);
+      setBuildingToDelete(null);
+      fetchBuildings();
+      fetchRooms();
+    } catch (err) {
+      alert('ลบอาคารไม่สำเร็จ');
+    }
+  };
+
+  // Actions: เพิ่มห้องเรียน
   const handleAddRoomSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -123,7 +141,7 @@ export default function App() {
         floor: '', 
         type: 'Lecture', 
         name: '', 
-        status: 'Now' 
+        status: 'Open' 
       });
       fetchRooms();
     } catch (err) {
@@ -131,6 +149,34 @@ export default function App() {
     }
   };
 
+  // Actions: เปิด Modal แก้ไขห้องเรียน
+  const handleOpenEditRoom = (room) => {
+    setEditingRoom({
+      originalId: room.id,
+      id: room.id,
+      building_id: room.building_id || '',
+      building_name: room.building_name || '',
+      floor: room.floor,
+      type: room.type || 'Lecture',
+      status: room.status === 'Close' ? 'Close' : 'Open'
+    });
+    setShowEditRoomModal(true);
+  };
+
+  // Actions: บันทึกการแก้ไขห้องเรียน
+  const handleEditRoomSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await axios.put(`${API_BASE}/rooms/${editingRoom.originalId}`, editingRoom);
+      setShowEditRoomModal(false);
+      setEditingRoom(null);
+      fetchRooms();
+    } catch (err) {
+      alert('แก้ไขห้องเรียนไม่สำเร็จ: ' + (err.response?.data?.error || err.message));
+    }
+  };
+
+  // Actions: ลบห้องเรียน
   const handleDeleteRoom = async (id) => {
     if (window.confirm(`ยืนยันการลบห้องเรียน ${id}?`)) {
       try {
@@ -188,7 +234,6 @@ export default function App() {
     return matchBuilding && matchFloor && matchType && matchSearch;
   });
 
-  // Guard: ตรวจสอบสถานะการ Login
   if (!isLoggedIn) {
     return <Login onLoginSuccess={handleLoginSuccess} />;
   }
@@ -294,7 +339,6 @@ export default function App() {
               </div>
 
               <div style={styles.innerFilterBox}>
-                <Search size={18} color="#8C7A6B" />
                 <input 
                   type="text" 
                   placeholder="Filter..." 
@@ -308,7 +352,7 @@ export default function App() {
                 <div style={{ flex: 2, paddingLeft: '40px' }}>Building</div>
                 <div style={{ flex: 1, textAlign: 'center' }}>Number</div>
                 <div style={{ flex: 1, textAlign: 'center' }}>Rooms</div>
-                <div style={{ flex: 1.5 }}></div>
+                <div style={{ flex: 2, textAlign: 'right', paddingRight: '30px' }}>Action</div>
               </div>
 
               <div style={styles.tableBody}>
@@ -328,9 +372,16 @@ export default function App() {
                         <div style={{ fontWeight: 'bold', fontSize: '16px' }}>{b.rooms_count || 0}</div>
                         <div style={{ fontSize: '13px', color: '#222' }}>floors</div>
                       </div>
-                      <div style={{ flex: 1.5, textAlign: 'right', paddingRight: '20px' }}>
+                      <div style={{ flex: 2, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '8px', paddingRight: '20px' }}>
                         <button style={styles.manageRoomBtn} onClick={() => handleManageRooms(b.name)}>
                           Manage Rooms
+                        </button>
+                        <button 
+                          style={styles.deleteBuildingBtn} 
+                          title="ลบอาคารนี้"
+                          onClick={() => setBuildingToDelete(b)}>
+                          <Trash2 size={16} color="#FFF" />
+                          <span>ลบอาคาร</span>
                         </button>
                       </div>
                     </div>
@@ -398,28 +449,42 @@ export default function App() {
                 <div style={{ flex: 2 }}>Building</div>
                 <div style={{ flex: 1, textAlign: 'center' }}>Floor</div>
                 <div style={{ flex: 1, textAlign: 'center' }}>Status</div>
-                <div style={{ flex: 1, textAlign: 'right', paddingRight: '20px' }}>Action</div>
+                <div style={{ flex: 1.2, textAlign: 'right', paddingRight: '20px' }}>Action</div>
               </div>
 
               <div style={styles.tableBody}>
                 {filteredClassrooms.length === 0 ? (
                   <div style={styles.emptyText}>ไม่พบข้อมูลห้องเรียน</div>
                 ) : (
-                  filteredClassrooms.map((c) => (
-                    <div key={c.id} style={styles.buildingTableRow}>
-                      <div style={{ flex: 1.5, paddingLeft: '20px', fontWeight: 'bold' }}>{c.id}</div>
-                      <div style={{ flex: 2 }}>{c.building_name}</div>
-                      <div style={{ flex: 1, textAlign: 'center' }}>{c.floor}</div>
-                      <div style={{ flex: 1, textAlign: 'center', color: '#16a34a', fontWeight: 'bold' }}>
-                        ● {c.status}
+                  filteredClassrooms.map((c) => {
+                    const isOpen = c.status === 'Open' || c.status === 'Now';
+                    return (
+                      <div key={c.id} style={styles.buildingTableRow}>
+                        <div style={{ flex: 1.5, paddingLeft: '20px', fontWeight: 'bold' }}>{c.id}</div>
+                        <div style={{ flex: 2 }}>{c.building_name}</div>
+                        <div style={{ flex: 1, textAlign: 'center' }}>{c.floor}</div>
+                        <div style={{ flex: 1, textAlign: 'center', color: isOpen ? '#16a34a' : '#6b7280', fontWeight: 'bold' }}>
+                          ● {isOpen ? 'Open' : 'Close'}
+                        </div>
+                        <div style={{ flex: 1.2, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '12px', paddingRight: '20px' }}>
+                          {/* ปุ่มดินสอแก้ไข */}
+                          <button 
+                            style={styles.actionIconBtn} 
+                            title="แก้ไขห้องเรียน"
+                            onClick={() => handleOpenEditRoom(c)}>
+                            <Edit size={18} color="#E88147" />
+                          </button>
+                          {/* ปุ่มถังขยะลบ */}
+                          <button 
+                            style={styles.actionIconBtn} 
+                            title="ลบห้องเรียน"
+                            onClick={() => handleDeleteRoom(c.id)}>
+                            <Trash2 size={18} color="#dc2626" />
+                          </button>
+                        </div>
                       </div>
-                      <div style={{ flex: 1, textAlign: 'right', paddingRight: '20px' }}>
-                        <button style={styles.actionIconBtn} onClick={() => handleDeleteRoom(c.id)}>
-                          <Trash2 size={18} color="#dc2626" />
-                        </button>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -492,6 +557,107 @@ export default function App() {
 
         </div>
       </div>
+
+      {/* ================= MODAL: EDIT ROOM (ดินสอ) ================= */}
+      {showEditRoomModal && editingRoom && (
+        <div style={styles.modalOverlay}>
+          <form style={styles.modalBox} onSubmit={handleEditRoomSubmit}>
+            <h3 style={{ marginTop: 0, color: '#5A3825' }}>แก้ไขข้อมูลห้องเรียน</h3>
+            
+            <div style={styles.formGroup}>
+              <label>Room ID (รหัสห้อง):</label>
+              <input 
+                required 
+                style={styles.formInput} 
+                value={editingRoom.id} 
+                onChange={(e) => setEditingRoom({...editingRoom, id: e.target.value})} 
+              />
+            </div>
+
+            <div style={styles.formGroup}>
+              <label>Building (อาคาร):</label>
+              <select 
+                style={styles.formInput} 
+                value={editingRoom.building_id} 
+                onChange={(e) => {
+                  const b = buildings.find(item => String(item.id) === String(e.target.value));
+                  setEditingRoom({
+                    ...editingRoom, 
+                    building_id: e.target.value, 
+                    building_name: b ? b.name : editingRoom.building_name
+                  });
+                }}>
+                {buildings.map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={styles.formGroup}>
+              <label>Floor (ชั้น):</label>
+              <input 
+                type="number" 
+                required 
+                style={styles.formInput} 
+                value={editingRoom.floor} 
+                onChange={(e) => setEditingRoom({...editingRoom, floor: e.target.value})} 
+              />
+            </div>
+
+            <div style={styles.formGroup}>
+              <label>Room Type (ประเภทห้อง):</label>
+              <select 
+                style={styles.formInput} 
+                value={editingRoom.type} 
+                onChange={(e) => setEditingRoom({...editingRoom, type: e.target.value})}>
+                <option value="Lecture">Lecture</option>
+                <option value="Lab">Lab</option>
+              </select>
+            </div>
+
+            <div style={styles.formGroup}>
+              <label>Status (สถานะการใช้งาน):</label>
+              <select 
+                style={styles.formInput} 
+                value={editingRoom.status} 
+                onChange={(e) => setEditingRoom({...editingRoom, status: e.target.value})}>
+                <option value="Open">Open (กำลังใช้งาน / เปิดใช้งาน)</option>
+                <option value="Close">Close (ปิดใช้งาน)</option>
+              </select>
+            </div>
+
+            <div style={styles.modalBtnRow}>
+              <button type="button" style={styles.modalCancelBtn} onClick={() => setShowEditRoomModal(false)}>ยกเลิก</button>
+              <button type="submit" style={styles.modalSaveBtn}>บันทึกการแก้ไข</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ================= POPUP: CONFIRM DELETE BUILDING ================= */}
+      {buildingToDelete && (
+        <div style={styles.modalOverlay}>
+          <div style={{ ...styles.modalBox, textAlign: 'center', width: '360px' }}>
+            <h3 style={{ marginTop: 0, color: '#DC2626' }}>ยืนยันการลบอาคาร</h3>
+            <p style={{ color: '#5A3825', fontSize: '15px', lineHeight: '1.5' }}>
+              คุณแน่ใจหรือไม่ว่าต้องการลบ <br/>
+              <b>"{buildingToDelete.name}"</b> ออกจากระบบ?
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', marginTop: '24px' }}>
+              <button 
+                style={styles.modalCancelBtn} 
+                onClick={() => setBuildingToDelete(null)}>
+                ยกเลิก
+              </button>
+              <button 
+                style={styles.deleteConfirmBtn} 
+                onClick={handleConfirmDeleteBuilding}>
+                ยืนยันลบอาคาร
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ================= MODAL: ADD BUILDING ================= */}
       {showAddBuildingModal && (
@@ -583,6 +749,16 @@ export default function App() {
                 onChange={(e) => setNewRoom({...newRoom, type: e.target.value})}>
                 <option value="Lecture">Lecture</option>
                 <option value="Lab">Lab</option>
+              </select>
+            </div>
+            <div style={styles.formGroup}>
+              <label>Status:</label>
+              <select 
+                style={styles.formInput} 
+                value={newRoom.status} 
+                onChange={(e) => setNewRoom({...newRoom, status: e.target.value})}>
+                <option value="Open">Open</option>
+                <option value="Close">Close</option>
               </select>
             </div>
             <div style={styles.modalBtnRow}>
@@ -833,10 +1009,9 @@ const styles = {
     backgroundColor: '#FFFFFF',
     border: 'none',
     borderRadius: '8px',
-    padding: '10px 14px 10px 36px',
+    padding: '10px 14px',
     fontSize: '14px',
     outline: 'none',
-    marginLeft: '-28px',
   },
   buildingTableHeader: {
     backgroundColor: '#F39C6B',
@@ -861,10 +1036,33 @@ const styles = {
     color: '#FFFFFF',
     border: 'none',
     borderRadius: '8px',
-    padding: '10px 24px',
+    padding: '10px 18px',
     fontWeight: 'bold',
     fontSize: '14px',
     cursor: 'pointer',
+  },
+  deleteBuildingBtn: {
+    backgroundColor: '#DC2626',
+    color: '#FFFFFF',
+    border: 'none',
+    borderRadius: '8px',
+    padding: '10px 14px',
+    fontWeight: 'bold',
+    fontSize: '14px',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  deleteConfirmBtn: {
+    backgroundColor: '#DC2626',
+    color: '#FFFFFF',
+    border: 'none',
+    padding: '10px 20px',
+    borderRadius: '6px',
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    fontSize: '14px',
   },
   filterDropdownRow: {
     display: 'flex',
@@ -890,6 +1088,9 @@ const styles = {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   viewProfileBtn: {
     backgroundColor: '#5A3825',
@@ -967,6 +1168,7 @@ const styles = {
     border: '1px solid #CCC',
     background: '#FFF',
     cursor: 'pointer',
+    color: '#333',
   },
   modalSaveBtn: {
     padding: '8px 16px',
@@ -1002,9 +1204,8 @@ const styles = {
     color: '#FFFFFF',
     border: 'none',
     padding: '8px 24px',
-    borderRadius: '8px',
+    borderRadius: '6px',
     fontWeight: 'bold',
     cursor: 'pointer',
-    
   }
 };
