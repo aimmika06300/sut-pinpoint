@@ -1002,8 +1002,9 @@ const styles = {
     color: '#FFFFFF',
     border: 'none',
     padding: '8px 24px',
-    borderRadius: '6px',
+    borderRadius: '8px',
     fontWeight: 'bold',
     cursor: 'pointer',
+    
   }
 };
