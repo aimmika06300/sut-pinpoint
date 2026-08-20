@@ -145,6 +145,7 @@ app.get('/api/schedules/:userId', async (req, res) => {
   }
 });
 
+
 // POST: เพิ่มวิชาเรียนในตารางเรียน
 app.post('/api/schedules', async (req, res) => {
   const { user_id, classroom_id, course_code, course_name, day_of_week, start_time, end_time } = req.body;
@@ -159,6 +160,30 @@ app.post('/api/schedules', async (req, res) => {
     res.status(500).json({ error: 'Failed to add schedule' });
   }
 });
+// PUT: แก้ไขข้อมูลห้องเรียน
+app.put('/api/rooms/:id', async (req, res) => {
+  const oldId = req.params.id;
+  const { id: newId, building_id, building_name, floor, type, status } = req.body;
+
+  try {
+    const [result] = await db.query(
+      `UPDATE classrooms 
+       SET id = ?, building_id = ?, building_name = ?, floor = ?, type = ?, status = ? 
+       WHERE id = ?`,
+      [newId, building_id || null, building_name, floor, type || 'Lecture', status || 'Open', oldId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Room not found in database' });
+    }
+
+    res.json({ message: 'Updated room successfully', id: newId });
+  } catch (err) {
+    console.error('Error updating room:', err.message);
+    res.status(500).json({ error: 'Failed to update room: ' + err.message });
+  }
+});
+
 
 // Start Server
 const PORT = process.env.PORT || 5000;
@@ -166,3 +191,24 @@ app.listen(PORT, () => {
   console.log(`SUT Pinpoint Server running on port ${PORT}`);
 });
 
+
+// DELETE: ลบอาคารเรียน (พร้อมลบห้องเรียนทั้งหมดที่อยู่ในอาคารนั้น)
+app.delete('/api/buildings/:id', async (req, res) => {
+  const buildingId = req.params.id;
+  try {
+    // 1. ลบห้องเรียนที่ผูกกับอาคารนี้ออกก่อน เพื่อป้องกัน Foreign Key Error
+    await db.query('DELETE FROM classrooms WHERE building_id = ?', [buildingId]);
+
+    // 2. ลบข้อมูลอาคาร
+    const [result] = await db.query('DELETE FROM buildings WHERE id = ?', [buildingId]);
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: 'Building not found' });
+    }
+
+    res.json({ message: 'Deleted building successfully', id: buildingId });
+  } catch (err) {
+    console.error('Error deleting building:', err.message);
+    res.status(500).json({ error: 'Failed to delete building: ' + err.message });
+  }
+});

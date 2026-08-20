@@ -9,7 +9,7 @@ export default function Login({ onLoginSuccess }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     // ตรวจสอบข้อมูลเข้าสู่ระบบของ Admin (สามารถปรับเปลี่ยนหรือเชื่อมต่อ Backend Auth ได้)
-    if (username === 'admin' && password === '123456') {
+    if (username === 'adminsut' && password === 'sut') {
       setErrorMsg('');
       onLoginSuccess();
     } else {
