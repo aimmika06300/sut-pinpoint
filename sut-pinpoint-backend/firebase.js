@@ -1,12 +1,13 @@
-const { initializeApp, cert, getApps } = require('firebase-admin/app');
-const { getFirestore } = require('firebase-admin/firestore');
-const serviceAccount = require('./serviceAccountKey.json');
+const path = require('path');
+const { Firestore } = require('@google-cloud/firestore');
+const serviceAccount = require(path.resolve(__dirname, 'serviceAccountKey.json'));
 
-if (!getApps().length) {
-  initializeApp({
-    credential: cert(serviceAccount)
-  });
-}
+const db = new Firestore({
+  projectId: serviceAccount.project_id,
+  credentials: {
+    client_email: serviceAccount.client_email,
+    private_key: serviceAccount.private_key
+  }
+});
 
-const db = getFirestore();
 module.exports = db;
