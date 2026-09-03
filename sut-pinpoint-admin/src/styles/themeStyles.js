@@ -1,73 +1,25 @@
 export const colors = {
-  primaryBg: '#FFF8E7',
-  sidebarBg: '#5A453A',
-  headerBg: '#E88147',
-  cardHeaderBg: '#F39C6B',
-  accentBrown: '#5A3825',
-  subText: '#8C7A6B',
-  danger: '#DC2626',
-  success: '#16a34a',
+  primary: '#E88147',      // สีส้ม SUT หลัก
+  primaryBg: '#FFF8E7',    // สีพื้นหลังครีมอ่อน
+  sidebarBg: '#4A3B32',    // สีน้ำตาลเข้ม Sidebar
+  headerBg: '#F7E7CE',     // สีครีมพาสเทล Header
+  cardHeaderBg: '#F3E5D8', // สีหัวการ์ด
+  accentBrown: '#5A3825',  // ตัวหนังสือสีน้ำตาลเข้ม
   white: '#FFFFFF',
+  danger: '#DC2626',
+  dangerHover: '#B91C1C',
+  success: '#10B981',
+  warning: '#F59E0B',
+  subText: '#6B7280',
+  border: '#E5E7EB',
+  inputBg: '#FAF7F2',
 };
 
 export const styles = {
   appContainer: {
     display: 'flex',
     minHeight: '100vh',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     backgroundColor: colors.primaryBg,
-  },
-  modalOverlay: {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  modalBox: {
-    backgroundColor: colors.white,
-    padding: '24px',
-    borderRadius: '12px',
-    width: '380px',
-    boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-  },
-  formGroup: {
-    marginBottom: '14px',
-  },
-  formInput: {
-    width: '100%',
-    padding: '10px',
-    marginTop: '6px',
-    borderRadius: '6px',
-    border: '1px solid #CCC',
-    boxSizing: 'border-box',
-  },
-  modalBtnRow: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: '10px',
-    marginTop: '20px',
-  },
-  modalCancelBtn: {
-    padding: '8px 16px',
-    borderRadius: '6px',
-    border: '1px solid #CCC',
-    background: colors.white,
-    cursor: 'pointer',
-    color: '#333',
-  },
-  modalSaveBtn: {
-    padding: '8px 16px',
-    borderRadius: '6px',
-    border: 'none',
-    background: colors.headerBg,
-    color: colors.white,
-    fontWeight: 'bold',
-    cursor: 'pointer',
+    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   },
 };
