@@ -4,19 +4,22 @@ import { colors } from '../styles/themeStyles';
 
 export default function DashboardView({
   activeSubTab, setActiveSubTab,
-  buildings, classrooms, loading,
+  buildings, classrooms, users = [], loading,
   buildingFilter, setBuildingFilter,
   filterBuildingSelect, setFilterBuildingSelect,
   filterFloorSelect, setFilterFloorSelect,
   filterTypeSelect, setFilterTypeSelect,
   setShowAddBuildingModal, setShowAddRoomModal,
   handleOpenEditRoom, handleDeleteRoom, setBuildingToDelete,
-  onUpdateBuilding
+  onUpdateBuilding, handleDeleteUser, handleViewProfile
 }) {
   const [editingBuilding, setEditingBuilding] = useState(null);
   
   // State สำหรับค้นหาห้องเรียนใต้ Classroom Table
   const [roomSearch, setRoomSearch] = useState('');
+  
+  // State สำหรับค้นหาผู้ใช้ใต้ Users Management
+  const [userSearch, setUserSearch] = useState('');
 
   // ค้นหาอาคาร (Buildings Overview)
   const filteredBuildings = buildings.filter(b => 
@@ -32,6 +35,12 @@ export default function DashboardView({
                         (c.building_name && c.building_name.toLowerCase().includes(roomSearch.toLowerCase()));
     return matchBuilding && matchFloor && matchType && matchSearch;
   });
+
+  // ค้นหาผู้ใช้งาน (Users Management)
+  const filteredUsers = users.filter(u => 
+    (u.name || '').toLowerCase().includes(userSearch.toLowerCase()) ||
+    (u.student_id || '').toLowerCase().includes(userSearch.toLowerCase())
+  );
 
   const handleSaveBuilding = (e) => {
     e.preventDefault();
@@ -57,6 +66,11 @@ export default function DashboardView({
           style={activeSubTab === 'Classroom Table' ? dashStyles.subTabActive : dashStyles.subTab}
           onClick={() => setActiveSubTab('Classroom Table')}>
           Classroom Table ({classrooms.length})
+        </button>
+        <button 
+          style={activeSubTab === 'Users Management' ? dashStyles.subTabActive : dashStyles.subTab}
+          onClick={() => setActiveSubTab('Users Management')}>
+          Users Management ({users.length})
         </button>
       </div>
 
@@ -132,9 +146,7 @@ export default function DashboardView({
               </button>
             </div>
             
-            {/* Filter & Search Bar สำหรับห้องเรียน */}
             <div style={{ display: 'flex', gap: '16px', alignItems: 'center', padding: '16px 24px', backgroundColor: colors.cardHeaderBg || '#FAF6F0', flexWrap: 'wrap' }}>
-              {/* ช่องค้นหาห้องเรียนเพิ่มเติม */}
               <div style={{ flex: 1, minWidth: '200px' }}>
                 <label style={dashStyles.label}>Search Room</label>
                 <div style={dashStyles.searchWrapper}>
@@ -211,6 +223,63 @@ export default function DashboardView({
           </div>
         )}
 
+        {/* VIEW 3: USERS MANAGEMENT (แสดงรหัสนักศึกษาตามภาพตัวอย่าง) */}
+        {activeSubTab === 'Users Management' && (
+          <div>
+            <div style={dashStyles.cardHeader}>
+              <h3 style={{ margin: 0, fontSize: '20px', color: colors.accentBrown || '#5A3825' }}>Users Management</h3>
+              <span style={{ fontSize: '13px', color: colors.subText || '#757575' }}>ทั้งหมด {users.length} รายการ</span>
+            </div>
+
+            <div style={{ backgroundColor: colors.cardHeaderBg || '#FAF6F0', padding: '0 24px 16px' }}>
+              <div style={dashStyles.searchWrapper}>
+                <Search size={16} color={colors.subText || '#757575'} />
+                <input 
+                  type="text" 
+                  placeholder="ค้นหาชื่อ หรือ รหัสนักศึกษา..." 
+                  value={userSearch}
+                  onChange={(e) => setUserSearch(e.target.value)}
+                  style={dashStyles.searchInput}
+                />
+              </div>
+            </div>
+
+            <div style={dashStyles.tableHeader}>
+              <div style={{ flex: 0.8, paddingLeft: '24px' }}>No.</div>
+              <div style={{ flex: 2.5 }}>Users (Name)</div>
+              <div style={{ flex: 2.5 }}>Student ID</div>
+              <div style={{ flex: 1.5, textAlign: 'right', paddingRight: '24px' }}>Action</div>
+            </div>
+
+            {loading ? (
+              <div style={dashStyles.emptyState}>⏳ กำลังโหลดข้อมูลผู้ใช้...</div>
+            ) : filteredUsers.length === 0 ? (
+              <div style={dashStyles.emptyState}>🚫 ไม่พบข้อมูลผู้ใช้งาน</div>
+            ) : (
+              filteredUsers.map((u, index) => (
+                <div key={u.id || index} style={dashStyles.tableRow}>
+                  <div style={{ flex: 0.8, paddingLeft: '24px', color: colors.subText || '#757575' }}>{index + 1}</div>
+                  <div style={{ flex: 2.5, fontWeight: 'bold', color: colors.accentBrown || '#5A3825' }}>
+                    {u.name || u.username}
+                  </div>
+                  {/* แสดงฟิลด์รหัสนักศึกษาโดยตรง */}
+                  <div style={{ flex: 2.5, fontFamily: 'monospace', color: '#333' }}>
+                    {u.student_id || u.code || '-'}
+                  </div>
+                  <div style={{ flex: 1.5, display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingRight: '24px' }}>
+                    <button style={dashStyles.btnDarkBrown} onClick={() => handleViewProfile && handleViewProfile(u)}>
+                      VIEW PROFILE
+                    </button>
+                    <button style={dashStyles.btnRed} onClick={() => handleDeleteUser && handleDeleteUser(u.id)}>
+                      DELETE
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
       </div>
 
       {/* MODAL: Edit Building */}
@@ -281,12 +350,13 @@ const dashStyles = {
   subTabActive: { background: 'none', border: 'none', fontSize: '15px', color: colors.accentBrown || '#ff6f1b', fontWeight: 'bold', cursor: 'pointer', paddingBottom: '8px', borderBottom: `3px solid ${colors.accentBrown || '#5A3825'}` },
   cardHeader: { backgroundColor: colors.cardHeaderBg || '#FAF6F0', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   addBtn: { backgroundColor: colors.accentBrown || '#5A3825', color: colors.white || '#FFF', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' },
-  tableHeader: { backgroundColor: colors.cardHeaderBg || '#FAF6F0', display: 'flex', padding: '12px 10px', fontWeight: 'bold', borderTop: '1px solid rgba(0,0,0,0.05)', color: colors.accentBrown || '#5A3825' },
-  tableRow: { display: 'flex', alignItems: 'center', padding: '14px 10px', borderBottom: '1px solid #EFEFEF' },
+  tableHeader: { backgroundColor: colors.cardHeaderBg || '#FAF6F0', display: 'flex', padding: '12px 10px', fontWeight: 'bold', borderTop: '1px solid rgba(0,0,0,0.05)', color: colors.accentBrown || '#5A3825', fontSize: '14px' },
+  tableRow: { display: 'flex', alignItems: 'center', padding: '14px 10px', borderBottom: '1px solid #EFEFEF', fontSize: '14px' },
   btnGreen: { backgroundColor: colors.success || '#2e7d32', color: colors.white || '#FFF', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' },
   btnBrown: { backgroundColor: colors.accentBrown || '#5A3825', color: colors.white || '#FFF', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' },
+  btnDarkBrown: { backgroundColor: '#3d2517', color: '#FFF', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' },
   btnGray: { backgroundColor: '#757575', color: colors.white || '#FFF', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer' },
-  btnRed: { backgroundColor: colors.danger || '#d32f2f', color: colors.white || '#FFF', border: 'none', borderRadius: '6px', padding: '6px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center' },
+  btnRed: { backgroundColor: colors.danger || '#d32f2f', color: colors.white || '#FFF', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' },
   label: { display: 'block', fontSize: '13px', fontWeight: 'bold', color: colors.accentBrown || '#5A3825', marginBottom: '4px' },
   select: { padding: '8px 12px', borderRadius: '6px', border: '1px solid #CCC', minWidth: '150px', backgroundColor: colors.white || '#FFF', height: '35px' },
   input: { width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #CCC', fontSize: '14px', boxSizing: 'border-box' },

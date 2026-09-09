@@ -4,8 +4,12 @@ import { colors } from '../styles/themeStyles';
 export default function UsersView({ users, loading, globalSearch, setSelectedUserProfile, handleDeleteUser }) {
   // กรองผู้ใช้จาก Search Bar ส่วนกลาง
   const filteredUsers = users.filter(u => {
-    const fullName = (u.name || `${u.first_name || ''} ${u.last_name || ''}`).toLowerCase();
-    const studentId = (u.student_id || `B${u.id}`).toLowerCase();
+    // ปรับให้ดึงฟิลด์ชื่อให้ครอบคลุม (name, username, first_name)
+    const fullName = (u.name || u.username || `${u.first_name || ''} ${u.last_name || ''}`).toLowerCase();
+    
+    // ตรวจสอบฟิลด์รหัสนักศึกษาจริง ๆ (ห้ามเอา u.id ระบบมายำรวมถ้า u.id เป็นรหัสยาว)
+    const studentId = (u.student_id || u.code || '').toLowerCase();
+    
     const query = (globalSearch || '').toLowerCase();
     return fullName.includes(query) || studentId.includes(query);
   });
@@ -30,10 +34,19 @@ export default function UsersView({ users, loading, globalSearch, setSelectedUse
         <div style={{ padding: '40px', textAlign: 'center', color: colors.subText }}>🚫 ไม่พบผู้ใช้งานที่ตรงตามคำค้นหา</div>
       ) : (
         filteredUsers.map((u, idx) => (
-          <div key={u.id} style={{ display: 'flex', alignItems: 'center', padding: '16px 10px', borderBottom: '1px solid #EFEFEF' }}>
+          <div key={u.id || idx} style={{ display: 'flex', alignItems: 'center', padding: '16px 10px', borderBottom: '1px solid #EFEFEF' }}>
             <div style={{ flex: 0.8, paddingLeft: '24px' }}>{idx + 1}</div>
-            <div style={{ flex: 2, fontWeight: 'bold', color: '#222' }}>{u.name || `${u.first_name || ''} ${u.last_name || ''}`}</div>
-            <div style={{ flex: 1.5, color: colors.subText }}>{u.student_id || `B${u.id}00000`}</div>
+            
+            {/* คอลัมน์ Users (Name): แสดงชื่อผู้ใช้งานจริง ๆ */}
+            <div style={{ flex: 2, fontWeight: 'bold', color: '#222' }}>
+              {u.name || u.username || `${u.first_name || ''} ${u.last_name || ''}` || '-'}
+            </div>
+
+            {/* คอลัมน์ Student ID: แสดงรหัสนักศึกษาโดยไม่เอา Firebase ID ยาวๆ มาแปลงมั่ว */}
+            <div style={{ flex: 1.5, color: colors.subText, fontFamily: 'monospace' }}>
+              {u.student_id || u.code || '-'}
+            </div>
+
             <div style={{ flex: 2, textAlign: 'right', paddingRight: '24px' }}>
               <button 
                 onClick={() => setSelectedUserProfile(u)}
