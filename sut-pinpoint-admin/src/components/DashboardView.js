@@ -110,28 +110,35 @@ export default function DashboardView({
             ) : filteredBuildings.length === 0 ? (
               <div style={dashStyles.emptyState}>🚫 ไม่พบข้อมูลอาคารที่ค้นหา</div>
             ) : (
-              filteredBuildings.map((b) => (
-                <div key={b.id} style={dashStyles.tableRow}>
-                  <div style={{ flex: 2, paddingLeft: '24px', fontWeight: 'bold', fontSize: '16px', color: colors.accentBrown || '#5A3825' }}>
-                    {b.name}
+              filteredBuildings.map((b) => {
+                // คำนวณจำนวนห้องจริงจากอาเรย์ classrooms
+                const buildingRooms = classrooms.filter(c => c.building_name === b.name);
+                const totalRooms = buildingRooms.length > 0 ? buildingRooms.length : (b.total_rooms || 0);
+                const availableRooms = buildingRooms.filter(c => c.status === 'Open' || c.status === 'Now').length;
+
+                return (
+                  <div key={b.id} style={dashStyles.tableRow}>
+                    <div style={{ flex: 2, paddingLeft: '24px', fontWeight: 'bold', fontSize: '16px', color: colors.accentBrown || '#5A3825' }}>
+                      {b.name}
+                    </div>
+                    <div style={{ flex: 1, textAlign: 'center' }}>{b.floors} floors</div>
+                    <div style={{ flex: 1.2, textAlign: 'center' }}>
+                      <span style={{ color: colors.success || '#2e7d32', fontWeight: 'bold' }}>{availableRooms}</span> / {totalRooms} rooms
+                    </div>
+                    <div style={{ flex: 2.5, display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingRight: '24px' }}>
+                      <button style={dashStyles.btnGreen} onClick={() => handleJumpToBuildingRooms(b.name)}>
+                        <DoorOpen size={15} /> ดูห้องในอาคารนี้
+                      </button>
+                      <button style={dashStyles.btnBrown} onClick={() => setEditingBuilding({ ...b, total_rooms: totalRooms, available_rooms: availableRooms })}>
+                        <Edit size={15} /> Manage
+                      </button>
+                      <button style={dashStyles.btnRed} onClick={() => setBuildingToDelete(b)}>
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ flex: 1, textAlign: 'center' }}>{b.floors} floors</div>
-                  <div style={{ flex: 1.2, textAlign: 'center' }}>
-                    <span style={{ color: colors.success || '#2e7d32', fontWeight: 'bold' }}>{b.available_rooms}</span> / {b.total_rooms} rooms
-                  </div>
-                  <div style={{ flex: 2.5, display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingRight: '24px' }}>
-                    <button style={dashStyles.btnGreen} onClick={() => handleJumpToBuildingRooms(b.name)}>
-                      <DoorOpen size={15} /> ดูห้องในอาคารนี้
-                    </button>
-                    <button style={dashStyles.btnBrown} onClick={() => setEditingBuilding({ ...b })}>
-                      <Edit size={15} /> Manage
-                    </button>
-                    <button style={dashStyles.btnRed} onClick={() => setBuildingToDelete(b)}>
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         )}
@@ -223,7 +230,7 @@ export default function DashboardView({
           </div>
         )}
 
-        {/* VIEW 3: USERS MANAGEMENT (แสดงรหัสนักศึกษาตามภาพตัวอย่าง) */}
+        {/* VIEW 3: USERS MANAGEMENT */}
         {activeSubTab === 'Users Management' && (
           <div>
             <div style={dashStyles.cardHeader}>
@@ -262,7 +269,6 @@ export default function DashboardView({
                   <div style={{ flex: 2.5, fontWeight: 'bold', color: colors.accentBrown || '#5A3825' }}>
                     {u.name || u.username}
                   </div>
-                  {/* แสดงฟิลด์รหัสนักศึกษาโดยตรง */}
                   <div style={{ flex: 2.5, fontFamily: 'monospace', color: '#333' }}>
                     {u.student_id || u.code || '-'}
                   </div>

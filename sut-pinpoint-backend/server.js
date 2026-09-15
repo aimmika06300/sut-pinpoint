@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const db = require('./firebase');
+const admin = require('firebase-admin'); // เติมจากโค้ด 1: เพิ่ม Firebase Admin SDK
 
 const app = express();
 
@@ -60,6 +61,36 @@ app.post('/api/buildings', async (req, res) => {
       floors: floorsNumber,
       rooms_count: Number(rooms_count) || 0
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT: แก้ไขข้อมูลอาคาร (รองรับการลากหมุดเปลี่ยนพิกัด lat/lng และแก้รายละเอียดใน Modal)
+app.put('/api/buildings/:id', async (req, res) => {
+  const buildingId = req.params.id;
+  const { name, floors, available, total, lat, lng } = req.body;
+
+  try {
+    const buildingRef = db.collection('buildings').doc(buildingId);
+    const buildingDoc = await buildingRef.get();
+
+    if (!buildingDoc.exists) {
+      return res.status(404).json({ error: 'Building not found' });
+    }
+
+    // สร้าง object ข้อมูลที่จะอัปเดตเฉพาะ field ที่ส่งมา
+    const updateData = {};
+    if (name !== undefined) updateData.name = name;
+    if (floors !== undefined) updateData.floors = Number(floors);
+    if (available !== undefined) updateData.available = Number(available);
+    if (total !== undefined) updateData.total = Number(total);
+    if (lat !== undefined) updateData.lat = Number(lat);
+    if (lng !== undefined) updateData.lng = Number(lng);
+
+    await buildingRef.update(updateData);
+
+    res.json({ message: 'Updated building successfully', data: updateData });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -293,60 +324,101 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// DELETE: ลบผู้ใช้งาน
-app.delete('/api/users/:id', async (req, res) => {
-  const userId = req.params.id;
-
+// เติมจากโค้ด 1: GET: ดึงข้อมูลผู้ใช้รายบุคคล (รองรับทั้งตาม doc id และ studentId)
+app.get('/api/users/:id', async (req, res) => {
   try {
-    const user = await db
-      .collection('users')
-      .doc(userId)
-      .get();
-
-    if (!user.exists) {
-      return res.status(404).json({
-        error: 'User not found'
-      });
+    const doc = await db.collection('users').doc(req.params.id).get();
+    if (doc.exists) {
+      return res.json({ id: doc.id, ...doc.data() });
     }
 
-    await db
-      .collection('users')
-      .doc(userId)
-      .delete();
+    const querySnap = await db.collection('users').where('studentId', '==', req.params.id).limit(1).get();
+    if (!querySnap.empty) {
+      return res.json({ id: querySnap.docs[0].id, ...querySnap.docs[0].data() });
+    }
 
-    res.json({
-      message: 'Deleted user successfully'
-    });
+    res.status(404).json({ message: 'User not found' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// PUT: แก้ไขข้อมูลอาคาร (รองรับการลากหมุดเปลี่ยนพิกัด lat/lng และแก้รายละเอียดใน Modal)
-app.put('/api/buildings/:id', async (req, res) => {
-  const buildingId = req.params.id;
-  const { name, floors, available, total, lat, lng } = req.body;
+// เติมจากโค้ด 1: POST: บันทึก/อัปเดตข้อมูลผู้ใช้ (Name, Student ID, Email, Institute, Club)
+app.post('/api/users', async (req, res) => {
+  const { studentId, name, institute, faculty, club, uid, email } = req.body;
+  const docId = studentId || uid;
+
+  if (!docId) {
+    return res.status(400).json({ error: 'studentId or uid is required' });
+  }
 
   try {
-    const buildingRef = db.collection('buildings').doc(buildingId);
-    const buildingDoc = await buildingRef.get();
+    await db.collection('users').doc(docId).set({
+      studentId: studentId || docId,
+      name: name || studentId || docId,
+      email: email || '',
+      institute: institute || faculty || 'สำนักวิชาวิศวกรรมศาสตร์',
+      faculty: faculty || institute || 'สำนักวิชาวิศวกรรมศาสตร์',
+      club: club || 'ชมรมพัฒนาซอฟต์แวร์',
+      uid: uid || '',
+      updatedAt: new Date().toISOString()
+    }, { merge: true });
 
-    if (!buildingDoc.exists) {
-      return res.status(404).json({ error: 'Building not found' });
+    res.status(200).json({ message: 'User synced successfully', id: docId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// เติมจากโค้ด 1: DELETE: ลบผู้ใช้ (ลบทั้งใน Firestore และ Firebase Authentication)
+app.delete('/api/users/:id', async (req, res) => {
+  const targetId = req.params.id;
+  try {
+    let uidsToDelete = [];
+    let emailsToDelete = [];
+
+    // 1. ตรวจสอบและดึงข้อมูลจาก Document ID ตรงๆ
+    const directDoc = await db.collection('users').doc(targetId).get();
+    if (directDoc.exists) {
+      const data = directDoc.data();
+      if (data.uid) uidsToDelete.push(data.uid);
+      if (data.email) emailsToDelete.push(data.email);
+      await db.collection('users').doc(targetId).delete();
     }
 
-    // สร้าง object ข้อมูลที่จะอัปเดตเฉพาะ field ที่ส่งมา
-    const updateData = {};
-    if (name !== undefined) updateData.name = name;
-    if (floors !== undefined) updateData.floors = Number(floors);
-    if (available !== undefined) updateData.available = Number(available);
-    if (total !== undefined) updateData.total = Number(total);
-    if (lat !== undefined) updateData.lat = Number(lat);
-    if (lng !== undefined) updateData.lng = Number(lng);
+    // 2. ค้นหาเอกสารที่ studentId ตรงกัน (กรณี ID เอกสารเป็นอย่างอื่น)
+    const querySnap = await db.collection('users').where('studentId', '==', targetId).get();
+    for (const doc of querySnap.docs) {
+      const data = doc.data();
+      if (data.uid) uidsToDelete.push(data.uid);
+      if (data.email) emailsToDelete.push(data.email);
+      await doc.ref.delete();
+    }
 
-    await buildingRef.update(updateData);
+    // 3. ลบบัญชีใน Firebase Authentication ผ่าน UID
+    for (const u of uidsToDelete) {
+      try {
+        await admin.auth().deleteUser(u);
+        console.log(`Deleted Auth user by UID: ${u}`);
+      } catch (authErr) {
+        console.log(`Auth delete by UID skipped: ${authErr.message}`);
+      }
+    }
 
-    res.json({ message: 'Updated building successfully', data: updateData });
+    // 4. ลบบัญชีใน Firebase Authentication ผ่าน Email (ป้องกันกรณีไม่มี UID)
+    for (const em of emailsToDelete) {
+      try {
+        const userRecord = await admin.auth().getUserByEmail(em);
+        if (userRecord && userRecord.uid) {
+          await admin.auth().deleteUser(userRecord.uid);
+          console.log(`Deleted Auth user by Email: ${em} (${userRecord.uid})`);
+        }
+      } catch (emErr) {
+        console.log(`Auth delete by Email skipped: ${emErr.message}`);
+      }
+    }
+
+    res.json({ message: 'Deleted user from DB and Auth successfully' });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
